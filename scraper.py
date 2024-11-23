@@ -10,8 +10,6 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# since the page is paginated, the dom is not rebuild allowing us to keep hold of the dom elements and save a lot of processing time
-
 driver = webdriver.Chrome()
 
 driver.get("http://localhost:3000")
