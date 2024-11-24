@@ -6,6 +6,9 @@ import mysql.connector
 
 from requests import post
 import json
+from typing import List
+
+from tqdm import tqdm
 
 
 app = FastAPI()
@@ -18,6 +21,25 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+
+PROMPT_SYSTEM = """\
+You are Timothy, an AI assistant specialized in generating SQL queries for an online clothing retail inventory system. \
+Based on user requests, return only the SQL query that satisfies their query. \
+If you cannot confidently create an SQL query to address the request, respond with 'None'. Do not include any explanations, comments, or additional details in your responses.\
+"""
+
+PROMPT_USER = """You are part of an 
+"""
+
+PROMPT_INTERNAL = """\
+Given the following user question, corresponding SQL query, and SQL result, answer the user question.
+
+Question: {question};
+SQL Query: {query};
+SQL Result: {result};
+Answer: \
+"""
+
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -26,9 +48,48 @@ def get_db_connection():
         database="mysql"
     )
 
-class Message(BaseModel):
-    text: str
+def insert_into_db():
+    connection = get_db_connection()
+    cursor = connection.cursor()
 
+    with open("data/init_tables.sql", "r") as f:
+        sql = f.read()
+    
+    #cursor.execute(sql, multi=True)
+
+    prod_cols = ["id", "name", "sku", "parent", "price", "stock", "img", "text", "bullets"]
+    prod_sql = f"""INSERT INTO products ({", ".join(prod_cols)}) VALUES ({", ".join(["%s"] * len(prod_cols))})"""
+    
+    size_cols = ["product_id", "size"]
+    size_sql = f"""INSERT INTO sizes ({", ".join(size_cols)}) VALUES ({", ".join(["%s"] * len(size_cols))})"""
+    
+    cat_cols = ["product_id", "category"]
+    cat_sql = f"""INSERT INTO product_categories ({", ".join(cat_cols)}) VALUES ({", ".join(["%s"] * len(cat_cols))})"""
+    
+    with open("data/scraped_2024_11_24_13_17_36.json", "r") as f:
+        scraped_items = json.load(f) 
+        prod_vals, size_vals, cat_vals = [], [], []
+        for item in tqdm(scraped_items):
+            prod_vals.append(tuple([item[col] if col != "price" else item["price ($)"] for col in prod_cols]))
+            for size in item["size"]:
+                size_vals.append((item["id"], size))
+
+            cats = set()
+            for category in item["categories"]:
+                for level in category:
+                    if level not in cats:
+                        cat_vals.append((item["id"], level))
+                        cats.add(level)
+    # connection.cursor().executemany(prod_sql, prod_vals)    
+    connection.commit()    
+    connection.close()
+
+insert_into_db()
+
+
+class Message(BaseModel):
+    sender: str
+    text: str
 
 
 @app.get("/check")
@@ -38,17 +99,29 @@ async def check():
     }
 
 @app.post("/send/message")
-async def send_message(msg: Message):
-    print(msg.text)
+async def send_message(messages: List[Message]):
+    system_message = {
+        "role": "system",
+        "content": PROMPT_SYSTEM
+    }
+
+    chat_messages = [
+        {
+            "role": "assistant" if m.sender == "Timothy" else "user",
+            "content": m.text
+        } 
+        for m in messages
+    ]
+    print([system_message] + chat_messages)
 
     response_text = ""
     for chunk in post(
-        url="http://localhost:11434/api/generate", 
+        url="http://localhost:11434/api/chat", 
         json={
             "model": "llama3.2:3b",
-            "prompt": msg.text
+            "messages": [system_message] + chat_messages
         }).text.splitlines():
-        response_text += json.loads(chunk)["response"]
+        response_text += json.loads(chunk)["message"]["content"]
 
     print(response_text)
     return {"message": response_text}

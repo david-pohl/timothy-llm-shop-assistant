@@ -10,6 +10,8 @@ docker run --name mysql -d \
     -e MYSQL_ROOT_PASSWORD=db \
     --restart unless-stopped \
     mysql
+docker restart mysql
+docker rm mysql
 
 docker pull ollama/ollama
 docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
@@ -24,6 +26,7 @@ npm run build
 npm run start
 
 to improve:
+optimize prompts, e.g., using dspy
 gpu-supported llm
 more agent-like behavior (show a picture, then retrieve link or propose alternatives)
 improving handling questions regarding prior context

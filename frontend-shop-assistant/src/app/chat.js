@@ -16,24 +16,29 @@ const ChatPage = () => {
     const [isWaiting, setIsWaiting] = useState(false)
 
     const sendMessage = async () => {
-        let message = input.trim()
-        if (message === "") { return; }
-        else {
-            newMessage("You", message)
-            setInput("");
-            setIsWaiting(true);
+        let text = input.trim()
+        if (text === "") { return; }
+        let message = {
+            sender: "You",
+            text: text
         }
 
-        try {
-            let payload = JSON.stringify({ text: message })
-            console.log(payload)
+        let context = messages.slice(-4).map((message, index) => ({
+            sender: message.sender,
+            text: message.text
+        }));
 
+        newMessage("You", text);
+        setInput("");
+        setIsWaiting(true);
+        
+        try {
             const res = await fetch("http://127.0.0.1:8000/send/message", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: payload, // Send the message as JSON
+                body: JSON.stringify(context.concat(message)), // Send the message as JSON
             });
 
             if (!res.ok) {
