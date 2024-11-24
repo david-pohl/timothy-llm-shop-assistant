@@ -48,15 +48,7 @@ def get_db_connection():
         database="mysql"
     )
 
-def insert_into_db():
-    connection = get_db_connection()
-    cursor = connection.cursor()
-
-    with open("data/init_tables.sql", "r") as f:
-        sql = f.read()
-    
-    #cursor.execute(sql, multi=True)
-
+def init_db():
     prod_cols = ["id", "name", "sku", "parent", "price", "stock", "img", "text", "bullets"]
     prod_sql = f"""INSERT INTO products ({", ".join(prod_cols)}) VALUES ({", ".join(["%s"] * len(prod_cols))})"""
     
@@ -64,7 +56,7 @@ def insert_into_db():
     size_sql = f"""INSERT INTO sizes ({", ".join(size_cols)}) VALUES ({", ".join(["%s"] * len(size_cols))})"""
     
     cat_cols = ["product_id", "category"]
-    cat_sql = f"""INSERT INTO product_categories ({", ".join(cat_cols)}) VALUES ({", ".join(["%s"] * len(cat_cols))})"""
+    cat_sql = f"""INSERT INTO categories ({", ".join(cat_cols)}) VALUES ({", ".join(["%s"] * len(cat_cols))})"""
     
     with open("data/scraped_2024_11_24_13_17_36.json", "r") as f:
         scraped_items = json.load(f) 
@@ -80,11 +72,32 @@ def insert_into_db():
                     if level not in cats:
                         cat_vals.append((item["id"], level))
                         cats.add(level)
-    # connection.cursor().executemany(prod_sql, prod_vals)    
-    connection.commit()    
+
+    connection = get_db_connection()
+
+    with connection.cursor() as cursor:
+        with open("data/init_table_products.sql", "r") as f:
+            sql = f.read()
+            cursor.execute(sql)
+        with open("data/init_table_sizes.sql", "r") as f:
+            sql = f.read()
+            cursor.execute(sql)
+        with open("data/init_table_categories.sql", "r") as f:
+            sql = f.read()
+            cursor.execute(sql)
+        
+        connection.commit()
+
+    with connection.cursor() as cursor:
+        cursor.executemany(prod_sql, prod_vals)
+        cursor.executemany(size_sql, size_vals)  
+        cursor.executemany(cat_sql, cat_vals)
+
+        connection.commit()
+
     connection.close()
 
-insert_into_db()
+init_db()
 
 
 class Message(BaseModel):

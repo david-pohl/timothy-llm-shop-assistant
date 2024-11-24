@@ -13,6 +13,14 @@ docker run --name mysql -d \
 docker restart mysql
 docker rm mysql
 
+docker exec -it mysql bash;
+mysql -u root -p;
+USE mysql;
+DESCRIBE products;
+DESCRIBE sizes;
+DESCRIBE categories;
+
+
 docker pull ollama/ollama
 docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
 docker exec -it ollama ollama list
