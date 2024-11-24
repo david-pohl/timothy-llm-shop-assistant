@@ -15,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 driver = webdriver.Chrome()
 
-driver.get("http://localhost:3000")
+driver.get("http://localhost:4000")
 
 unused_attrs = set()
 
@@ -33,7 +33,9 @@ def scrape_item(item_div):
         )
     )
 
-    text, *bullets = desc_div.text.replace("•", "").replace("-", "").split("\n")
+    text, *bullets = desc_div.text.split("\n")
+    text = text.strip()
+    bullets = "; ".join([re.sub(r"[\n]*•\s", "", b).strip(".") for b in bullets])
 
     detail_btn.click()
 
@@ -77,8 +79,8 @@ def scrape_item(item_div):
 
     ActionChains(driver).send_keys(Keys.ESCAPE).perform()
 
-    scraped["text"] = text.strip()
-    scraped["bullets"] = [b.strip() for b in bullets]
+    scraped["text"] = text
+    scraped["bullets"] = bullets
 
     return scraped
 
@@ -91,7 +93,7 @@ item_divs = driver.find_elements(By.CSS_SELECTOR, item_css)
 scraped_items = []
 
 total_pages = int(last_page_btn.text)
-for i in tqdm(range(1, 20), desc="Scraping Shop"):
+for i in tqdm(range(1, total_pages), desc="Scraping Shop"):
     for item_div in item_divs:
         scraped = scrape_item(item_div)
         scraped_items.append(scraped)
@@ -99,7 +101,7 @@ for i in tqdm(range(1, 20), desc="Scraping Shop"):
     next_page_btn.click()
 
 print(unused_attrs)
-with open(f"scraped_data_{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.json", "w") as f:
+with open(f"backend/data/scraped_{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.json", "w") as f:
     json.dump(scraped_items, f, indent=4)
 
 driver.quit()

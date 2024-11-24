@@ -1,2 +1,3 @@
 venv
-scraped_data*
+scraped*
+intern-hw-simple-website-docker-image.tar

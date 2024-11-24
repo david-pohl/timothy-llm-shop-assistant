@@ -1,2 +1,5 @@
 selenium
 tqdm
+mysql-connector-python
+fastapi[standard]
+requests
