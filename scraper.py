@@ -1,3 +1,5 @@
+import sys
+
 import time
 import re
 import json
@@ -12,6 +14,14 @@ from selenium.webdriver.common.keys import Keys
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+
+with open("backend/data/scraped_2024_11_24_13_17_36.json", "r") as f:
+    data = json.load(f)
+    print(data)
+
+print("test")
+sys.exit()
 
 driver = webdriver.Chrome()
 

@@ -15,6 +15,7 @@ docker rm mysql
 
 docker exec -it mysql bash;
 mysql -u root -p;
+SHOW DATABASES;
 USE mysql;
 DESCRIBE products;
 DESCRIBE sizes;
@@ -41,3 +42,10 @@ improving handling questions regarding prior context
 improving caching
 fine-tuning the sql retrieval
 sizing comparable not string xl > l > m usw.
+
+
+To test:
+1. What's your name?
+2. How many jackets are priced under $50?
+3. asdasdasd
+

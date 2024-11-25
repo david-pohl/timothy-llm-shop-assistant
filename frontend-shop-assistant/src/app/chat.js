@@ -1,16 +1,21 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const ChatPage = () => {
     const [messages, setMessages] = useState([
-        { sender: "Timothy", text: "Hi, my name is Timothy. I'm your personal assistant for shopping clothes. Ask me anything." },
-        { sender: "You", text: "I'm interested in purchasing a Juno Jacket. What sizes are available?" },
-        { sender: "Timothy", text: "Let me check that for you." },
+        { sender: "Timothy", text: "Hello! My name is Timothy. I'm here to assist you in your online clothing shopping. Ask me anything." },
     ]);
 
-    const newMessage = (sender, text) => { 
-        setMessages((prev) => [...prev, { sender: sender, text: text }]); 
+    const newMessage = (sender, text) => {
+        setMessages((prev) => [...prev, { sender: sender, text: text }]);
     }
+
+    const endOfMessagesRef = useRef(null);
+    useEffect(() => {
+        if (endOfMessagesRef.current) {
+            endOfMessagesRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [messages]);
 
     const [input, setInput] = useState("");
     const [isWaiting, setIsWaiting] = useState(false)
@@ -31,7 +36,7 @@ const ChatPage = () => {
         newMessage("You", text);
         setInput("");
         setIsWaiting(true);
-        
+
         try {
             const res = await fetch("http://127.0.0.1:8000/send/message", {
                 method: "POST",
@@ -78,16 +83,26 @@ const ChatPage = () => {
                                 }`}
                         >
                             <div
-                                className={`max-w-md px-4 py-3 rounded-md shadow-md ${msg.sender === "You"
-                                        ? "bg-slate-600 text-slate-200"
-                                        : "bg-slate-700 text-slate-300"
+                                className={`max-w-xl flex-1 px-4 py-3 space-y-1 rounded-md shadow-md ${msg.sender === "You"
+                                    ? "bg-slate-600 text-slate-200"
+                                    : "bg-slate-700 text-slate-300"
                                     }`}
                             >
                                 <p className="font-bold">{msg.sender}</p>
-                                <p>{msg.text}</p>
+                                <p className="whitespace-pre-line">{msg.text}</p>
                             </div>
                         </div>
                     ))}
+                    {isWaiting && (
+                        <div className="max-w-xl flex-1 flex justify-start mt-6">
+                            <div className="flex-1 flex space-x-2 h-32 items-center justify-center">
+                                <span className="w-3 h-3 bg-slate-600 rounded-md animate-pulse"></span>
+                                <span className="w-3 h-3 bg-slate-600 rounded-md animate-pulse delay-100"></span>
+                                <span className="w-3 h-3 bg-slate-600 rounded-md animate-pulse delay-200"></span>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={endOfMessagesRef} />
                 </div>
             </div>
 
@@ -100,7 +115,7 @@ const ChatPage = () => {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault(); // Prevent new lines when pressing Enter
+                            e.preventDefault();
                             sendMessage();
                         }
                     }}
