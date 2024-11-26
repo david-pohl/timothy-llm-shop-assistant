@@ -1,5 +1,7 @@
 # shop-assistant
 
+todo: external api, on-click scrape update, "please repeat" right after first prompt, containerization, size handling in clothing inventory, documentation
+
 npm i -s cohere-ai
 
 docker load -i shop/intern-hw-simple-website-docker-image.tar

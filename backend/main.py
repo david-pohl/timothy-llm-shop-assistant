@@ -37,7 +37,7 @@ If the user request is not a valid question or cannot be addressed with an SQL q
 Do not include any explanations, comments, or additional details in your responses.\
 """
 
-GET_PROMPT_USER = lambda question: f"""\
+GET_PROMPT_SQL = lambda question: f"""\
 Given a user question, create a syntactically correct SQL query. Only if the question builds on prior messages, use corresponding messages as context.
 Unless the question specifies a specific number of items to obtain, query for at most 5 results using the LIMIT clause as per MySQL. 
 You can order the results to return the most informative data in the database.
@@ -65,10 +65,10 @@ Question:
 {question}\
 """
 
-GET_PROMPT_INTERNAL = lambda question, query, result: f"""\
+GET_PROMPT_RESPONSE = lambda question, query, result: f"""\
 Given the following user question, corresponding SQL query, and SQL result, answer the user question. 
 If there is no SQL result, politely suggest that you can assist with finding items in the inventory if applicable. 
-If the request does not lend itself to such assistance or is unreadable, respond with 'None'. 
+If the request cannot be answered properly, ask for clarification politely. 
 
 Question: {question};
 SQL Query: {query};
@@ -135,7 +135,7 @@ class Message(BaseModel):
 
 class UserRequest(BaseModel):
     messages: List[Message]
-    use_internal_llm: bool
+    use_external_llm: bool
 
 
 @app.get("/check")
@@ -152,12 +152,20 @@ async def check():
 
 
 def execute_query(query):
-    connection = get_db_connection()
-    with connection.cursor() as cursor:
-        cursor.execute(query)
-        results = cursor.fetchall()
+    try:
+        connection = get_db_connection()
+        with connection.cursor(named_tuple=True) as cursor:
+            cursor.execute(query)
 
-    return results
+            named_results = []
+            for result in cursor.fetchall():
+                named_results.append(tuple(sorted([(k, v) for k, v in result._asdict().items()])))
+
+        print(named_results)
+        return named_results
+    except:
+        print("error in execution")
+        return None
 
 def include_system_prompt(messages):
     system_message = {
@@ -199,25 +207,34 @@ async def send_message(user_request: UserRequest):
         } 
         for m in user_request.messages
     ]
-    chat_messages[-1]["content"] = GET_PROMPT_USER(chat_messages[-1]["content"])
+    chat_messages[-1]["content"] = GET_PROMPT_SQL(chat_messages[-1]["content"])
 
-    if user_request.use_internal_llm:
+    if not user_request.use_external_llm:
         sql_query = prompt_internal(chat_messages)
-        print(sql_query)
-
-        if sql_query.startswith("SELECT"):
-            sql_result = execute_query(sql_query)[:5]
-        else:
-            sql_result = ""
-
-        print(sql_result)
-
-        chat_messages[-1]["content"] = GET_PROMPT_INTERNAL(user_query, sql_query, sql_result)
-
-        final_response = prompt_internal(chat_messages)
-        print(final_response)
-
-        return {"response": final_response}
     else:
-        prompt_external(chat_messages)
+        sql_query = prompt_external(chat_messages)
+
+    print(sql_query)
+
+    if sql_query.startswith("SELECT"):
+        sql_result = execute_query(sql_query)
+        if sql_result is None:
+            sql_result = "Error"
+        else:
+            sql_result = sql_result[:5]
+    else:
+        sql_result = ""
+
+    print(sql_result)
+
+    chat_messages[-1]["content"] = GET_PROMPT_RESPONSE(user_query, sql_query, sql_result)
+
+    if not user_request.use_external_llm:
+        final_response = prompt_internal(chat_messages)
+    else:
+        final_response = prompt_external(chat_messages)
+
+    print(final_response)
+
+    return {"response": final_response}
         

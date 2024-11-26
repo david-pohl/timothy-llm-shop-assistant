@@ -16,9 +16,40 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
+def new_parent_entry(item):
+    return {
+        "name": item["name"],
+        "size": item["size"],
+        "price": item["price ($)"],
+        "categories": item["categories"],
+        "text": item["text"],
+        "colors": set(),
+        "variants": set(),
+    }
+
+parent2info = {}
 with open("backend/data/scraped_2024_11_24_13_17_36.json", "r") as f:
-    data = json.load(f)
-    print(data)
+    scraped_items = json.load(f)
+    
+    for item in scraped_items:
+        parent_id = item["parent"]
+        if parent_id == "NA":
+            parent2info[item["sku"]] = new_parent_entry(item)
+
+    for item in scraped_items:
+        parent_id = item["parent"]
+        if parent_id != "NA":
+            size, color = item["name"].split("-")[-2:]
+            if parent_id not in parent2info:
+                parent2info[parent_id] = new_parent_entry(item)
+            else:
+                if size not in parent2info[parent_id]["size"]:
+                    parent2info[parent_id]["size"].append(size)
+
+            parent2info[parent_id]["colors"].add(color)
+            parent2info[parent_id]["variants"].add((item["id"], size, color, item["stock"]))
+
+    print(parent2info)
 
 print("test")
 sys.exit()
