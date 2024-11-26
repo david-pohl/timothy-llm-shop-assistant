@@ -5,6 +5,7 @@ const ChatPage = () => {
     const [messages, setMessages] = useState([
         { sender: "Timothy", text: "Hello! My name is Timothy. I'm here to assist you in your online clothing shopping. Ask me anything." },
     ]);
+    const [isCheckedExtLLM, setIsCheckedExtLLM] = useState(false);
 
     const newMessage = (sender, text) => {
         setMessages((prev) => [...prev, { sender: sender, text: text }]);
@@ -18,7 +19,7 @@ const ChatPage = () => {
     }, [messages]);
 
     const [input, setInput] = useState("");
-    const [isWaiting, setIsWaiting] = useState(false)
+    const [isWaiting, setIsWaiting] = useState(false);
 
     const sendMessage = async () => {
         let text = input.trim()
@@ -33,6 +34,8 @@ const ChatPage = () => {
             text: message.text
         }));
 
+        let chatMessages = context.concat(message)
+
         newMessage("You", text);
         setInput("");
         setIsWaiting(true);
@@ -43,15 +46,15 @@ const ChatPage = () => {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(context.concat(message)), // Send the message as JSON
+                body: JSON.stringify({ messages: chatMessages, use_internal_llm: true }),
             });
 
             if (!res.ok) {
                 throw new Error("Failed to send message");
             }
 
-            const data = await res.json(); // Parse the JSON response
-            newMessage("Timothy", data.message)
+            const data = await res.json();
+            newMessage("Timothy", data.response)
             setIsWaiting(false);
         } catch (error) {
             console.error("Error:", error);
@@ -59,16 +62,43 @@ const ChatPage = () => {
     };
 
     return (
-        <div className="flex flex-col h-screen w-screen bg-stone-900 text-white">
+        <div className="flex flex-col h-screen w-screen bg-chatBg">
             {/* Header */}
             <div className="flex items-center justify-between mx-32 mt-4">
-                <h1 className="text-2xl font-bold text-slate-300">Timothy</h1>
+                <h1 className="text-2xl font-bold text-msgText">Timothy</h1>
+                <div className="flex flex-row space-x-2">
+                    <span onClick={() => setIsCheckedExtLLM(false)} className={'flex cursor-pointer items-center text-sm font-medium transition-all ' + ("text-grayText" ? isCheckedExtLLM : "text-msgText")}>
+                        Internal LLM
+                    </span>
+                    <label className='relative inline-flex cursor-pointer select-none items-center opacity-75 hover:opacity-100 transition-all'>
+                        <input
+                            type='checkbox'
+                            checked={isCheckedExtLLM}
+                            onChange={() => setIsCheckedExtLLM(!isCheckedExtLLM)}
+                            className='sr-only'
+                        />
+
+                        <span
+                            className={`mx-2 flex h-6 w-10 items-center rounded-full p-1 transition-all ${isCheckedExtLLM ? 'bg-white' : 'bg-buttonBg'
+                                }`}
+                        >
+                            <span
+                                className={`dot h-4 w-4 rounded-full transition-all ${isCheckedExtLLM ? 'translate-x-4 bg-buttonBg' : 'bg-white'
+                                    }`}
+                            ></span>
+                        </span>
+
+                    </label>
+                    <span onClick={() => setIsCheckedExtLLM(true)} className={'flex cursor-pointer items-center text-sm font-medium transition-all ' + ("text-msgText" ? isCheckedExtLLM : "text-grayText")}>
+                        External LLM
+                    </span>
+                </div>
                 <div className="flex items-center gap-4 text-sm">
                     <div className="flex flex-col space-between">
                         <span className="text-gray-200">Updating May Take a While</span>
                         <span className="text-gray-400">Last: 2024/11/23 12:23 PM</span>
                     </div>
-                    <button className="px-4 py-1 h-10 rounded-md bg-slate-600 text-slate-200 hover:bg-slate-500 transition-colors">Update</button>
+                    <button className="px-4 py-1 h-10 rounded-md bg-buttonBg text-buttonText bg-opacity-85 focus:bg-opacity-100 hover:bg-opacity-100 transition-all">Update</button>
                 </div>
             </div>
 
@@ -84,8 +114,8 @@ const ChatPage = () => {
                         >
                             <div
                                 className={`max-w-xl flex-1 px-4 py-3 space-y-1 rounded-md shadow-md ${msg.sender === "You"
-                                    ? "bg-slate-600 text-slate-200"
-                                    : "bg-slate-700 text-slate-300"
+                                    ? "bg-userBg text-msgText"
+                                    : "bg-timoBg text-msgText"
                                     }`}
                             >
                                 <p className="font-bold">{msg.sender}</p>
@@ -95,10 +125,10 @@ const ChatPage = () => {
                     ))}
                     {isWaiting && (
                         <div className="max-w-xl flex-1 flex justify-start mt-6">
-                            <div className="flex-1 flex space-x-2 h-32 items-center justify-center">
-                                <span className="w-3 h-3 bg-slate-600 rounded-md animate-pulse"></span>
-                                <span className="w-3 h-3 bg-slate-600 rounded-md animate-pulse delay-100"></span>
-                                <span className="w-3 h-3 bg-slate-600 rounded-md animate-pulse delay-200"></span>
+                            <div className="flex-1 flex space-x-4 h-32 items-center justify-center">
+                                <span className="w-3 h-3 bg-timoBg rounded-sm animate-staggeredPulseA"></span>
+                                <span className="w-3 h-3 bg-timoBg rounded-sm animate-staggeredPulseB"></span>
+                                <span className="w-3 h-3 bg-timoBg rounded-sm animate-staggeredPulseC"></span>
                             </div>
                         </div>
                     )}
@@ -110,7 +140,7 @@ const ChatPage = () => {
             <div className="flex items-end mx-32 my-4">
                 <textarea
                     placeholder="Follow up on previous answers or ask a new question."
-                    className="flex-1 px-4 py-2 bg-slate-600 text-slate-200 hover:bg-slate-700 rounded-md placeholder-slate-400 outline-none focus:ring-0 focus:bg-slate-700 transition-all resize-none"
+                    className="flex-1 px-4 py-2 bg-buttonBg text-buttonText bg-opacity-85 focus:bg-opacity-100 hover:bg-opacity-100 rounded-md placeholder-buttonPlaceholder outline-none focus:ring-0 transition-all resize-none"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -123,7 +153,7 @@ const ChatPage = () => {
                     disabled={isWaiting}
                 />
                 <button
-                    className="ml-4 w-24 h-10 bg-slate-600 text-slate-200 hover:bg-slate-500 transition-colors rounded-md flex items-center justify-center"
+                    className="ml-4 w-24 h-10 bg-buttonBg text-buttonText bg-opacity-85 focus:bg-opacity-100 hover:bg-opacity-100 transition-all rounded-md flex items-center justify-center"
                     onClick={sendMessage}
                 >
                     →

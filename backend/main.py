@@ -9,6 +9,8 @@ import json
 from typing import List
 
 from tqdm import tqdm
+import cohere
+from private_vars import COHERE_API_KEY
 
 
 app = FastAPI()
@@ -127,10 +129,13 @@ def init_db():
 
 init_db()
 
-
 class Message(BaseModel):
     sender: str
     text: str
+
+class UserRequest(BaseModel):
+    messages: List[Message]
+    use_internal_llm: bool
 
 
 @app.get("/check")
@@ -154,27 +159,37 @@ def execute_query(query):
 
     return results
 
-def execute_prompt(chat_messages):
+def include_system_prompt(messages):
     system_message = {
         "role": "system",
         "content": PROMPT_SYSTEM
     }
+    return [system_message] + messages
 
+def prompt_internal(messages):
     response_text = ""
     for chunk in post(
         url="http://localhost:11434/api/chat", 
         json={
             "model": "llama3.2:3b",
-            "messages": [system_message] + chat_messages
+            "messages": include_system_prompt(messages)
         }).text.splitlines():
         response_text += json.loads(chunk)["message"]["content"]
 
     return response_text
 
+def prompt_external(messages):
+    co = cohere.ClientV2(COHERE_API_KEY)
+    response = co.chat(
+        model="command-r",
+        messages=include_system_prompt(messages)
+    )
+    return response.message.content[0].text
+
 
 @app.post("/send/message")
-async def send_message(messages: List[Message]):
-    user_query = messages[-1].text
+async def send_message(user_request: UserRequest):
+    user_query = user_request.messages[-1].text
     print(user_query)
 
     chat_messages = [
@@ -182,23 +197,27 @@ async def send_message(messages: List[Message]):
             "role": "assistant" if m.sender == "Timothy" else "user",
             "content": m.text
         } 
-        for m in messages
+        for m in user_request.messages
     ]
     chat_messages[-1]["content"] = GET_PROMPT_USER(chat_messages[-1]["content"])
 
-    sql_query = execute_prompt(chat_messages)
-    print(sql_query)
+    if user_request.use_internal_llm:
+        sql_query = prompt_internal(chat_messages)
+        print(sql_query)
 
-    if sql_query.startswith("SELECT"):
-        sql_result = execute_query(sql_query)[:5]
+        if sql_query.startswith("SELECT"):
+            sql_result = execute_query(sql_query)[:5]
+        else:
+            sql_result = ""
+
+        print(sql_result)
+
+        chat_messages[-1]["content"] = GET_PROMPT_INTERNAL(user_query, sql_query, sql_result)
+
+        final_response = prompt_internal(chat_messages)
+        print(final_response)
+
+        return {"response": final_response}
     else:
-        sql_result = ""
-
-    print(sql_result)
-
-    chat_messages[-1]["content"] = GET_PROMPT_INTERNAL(user_query, sql_query, sql_result)
-
-    final_response = execute_prompt(chat_messages)
-    print(final_response)
-
-    return {"message": final_response}
+        prompt_external(chat_messages)
+        
