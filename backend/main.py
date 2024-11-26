@@ -25,17 +25,24 @@ app.add_middleware(
 
 with open("backend/data/init_table_products.sql", "r") as f:
     SQL_INIT_TABLE_PRODUCTS = f.read()
-with open("backend/data/init_table_sizes.sql", "r") as f:
-    SQL_INIT_TABLE_SIZES = f.read()
 with open("backend/data/init_table_categories.sql", "r") as f:
     SQL_INIT_TABLE_CATEGORIES = f.read()
+with open("backend/data/init_table_variants.sql", "r") as f:
+    SQL_INIT_TABLE_VARIANTS = f.read()
 
-PROMPT_SYSTEM = """\
+SYSTEM_MESSAGE_SQL = {"role": "system", "content": """\
 You are Timothy, an AI assistant specialized in generating SQL queries for an online clothing retail inventory system.
 Given user requests, return only the SQL query that satisfies their query. 
 If the user request is not a valid question or cannot be addressed with an SQL query, respond with 'None'. 
 Do not include any explanations, comments, or additional details in your responses.\
-"""
+"""}
+
+SYSTEM_MESSAGE_RESPONSE = {"role": "system", "content": """\
+You are Timothy, an AI assistant of an online clothing retail inventory system. 
+Respond to the user based on their request, a corresponding SQL query, and SQL result. 
+Answer precisely based on the given information and previous conversation. Always respond politely and truthfully. 
+Never provide an answer while disregarding the given information.\
+"""}
 
 GET_PROMPT_SQL = lambda question: f"""\
 Given a user question, create a syntactically correct SQL query. Only if the question builds on prior messages, use corresponding messages as context.
@@ -46,8 +53,8 @@ Use only the column names you can see in the corresponding tables below. Be care
 
 Tables:
 {SQL_INIT_TABLE_PRODUCTS}
-{SQL_INIT_TABLE_SIZES}
 {SQL_INIT_TABLE_CATEGORIES}
+{SQL_INIT_TABLE_VARIANTS}
 
 ---
 Use the following path to finding a solution as a reference. 
@@ -85,43 +92,45 @@ def get_db_connection():
     )
 
 def init_db():
-    prod_cols = ["id", "name", "sku", "parent", "price", "stock", "img", "text", "bullets"]
+    prod_cols = ["id", "name", "price", "description", "features"]
     prod_sql = f"""INSERT IGNORE INTO products ({", ".join(prod_cols)}) VALUES ({", ".join(["%s"] * len(prod_cols))})"""
-    
-    size_cols = ["product_id", "size"]
-    size_sql = f"""INSERT IGNORE INTO sizes ({", ".join(size_cols)}) VALUES ({", ".join(["%s"] * len(size_cols))})"""
     
     cat_cols = ["product_id", "category"]
     cat_sql = f"""INSERT IGNORE INTO categories ({", ".join(cat_cols)}) VALUES ({", ".join(["%s"] * len(cat_cols))})"""
+
+    variants_cols = ["product_id", "size", "color", "stock", "internal_id"]
+    variants_sql = f"""INSERT IGNORE INTO variants ({", ".join(variants_cols)}) VALUES ({", ".join(["%s"] * len(variants_cols))})"""
     
-    with open("backend/data/scraped_2024_11_24_13_17_36.json", "r") as f:
-        scraped_items = json.load(f) 
-        prod_vals, size_vals, cat_vals = [], [], []
-        for item in tqdm(scraped_items):
-            prod_vals.append(tuple([item[col] if col != "price" else item["price ($)"] for col in prod_cols]))
-            for size in item["size"]:
-                size_vals.append((item["id"], size))
+    
+    with open("backend/data/products_2024_11_27_00_30_04.json", "r") as f:
+        products = json.load(f) 
+        prod_vals, cat_vals, variants_vals = [], [], []
+        for product_id, details in tqdm(products.items()):
+            prod_vals.append(tuple([details[col] if col != "id" else product_id for col in prod_cols]))
 
             cats = set()
-            for category in item["categories"]:
+            for category in details["categories"]:
                 for level in category:
                     if level not in cats:
-                        cat_vals.append((item["id"], level))
+                        cat_vals.append((product_id, level))
                         cats.add(level)
+            
+            for internal_id, size, color, stock in details["variants"]:
+                variants_vals.append((product_id, size, color, stock, internal_id))
 
     connection = get_db_connection()
 
     with connection.cursor() as cursor:
         cursor.execute(SQL_INIT_TABLE_PRODUCTS)
-        cursor.execute(SQL_INIT_TABLE_SIZES)
         cursor.execute(SQL_INIT_TABLE_CATEGORIES)
+        cursor.execute(SQL_INIT_TABLE_VARIANTS)
         
         connection.commit()
 
     with connection.cursor() as cursor:
         cursor.executemany(prod_sql, prod_vals)
-        cursor.executemany(size_sql, size_vals)  
         cursor.executemany(cat_sql, cat_vals)
+        cursor.executemany(variants_sql, variants_vals)  
 
         connection.commit()
 
@@ -154,25 +163,14 @@ async def check():
 def execute_query(query):
     try:
         connection = get_db_connection()
-        with connection.cursor(named_tuple=True) as cursor:
+        with connection.cursor(dictionary=True) as cursor:
             cursor.execute(query)
+            results = cursor.fetchall()
 
-            named_results = []
-            for result in cursor.fetchall():
-                named_results.append(tuple(sorted([(k, v) for k, v in result._asdict().items()])))
-
-        print(named_results)
-        return named_results
+        return results
     except:
-        print("error in execution")
-        return None
-
-def include_system_prompt(messages):
-    system_message = {
-        "role": "system",
-        "content": PROMPT_SYSTEM
-    }
-    return [system_message] + messages
+        print("SQL Execution Error")
+        return "error"
 
 def prompt_internal(messages):
     response_text = ""
@@ -180,7 +178,7 @@ def prompt_internal(messages):
         url="http://localhost:11434/api/chat", 
         json={
             "model": "llama3.2:3b",
-            "messages": include_system_prompt(messages)
+            "messages": messages
         }).text.splitlines():
         response_text += json.loads(chunk)["message"]["content"]
 
@@ -190,7 +188,7 @@ def prompt_external(messages):
     co = cohere.ClientV2(COHERE_API_KEY)
     response = co.chat(
         model="command-r",
-        messages=include_system_prompt(messages)
+        messages=messages
     )
     return response.message.content[0].text
 
@@ -210,29 +208,27 @@ async def send_message(user_request: UserRequest):
     chat_messages[-1]["content"] = GET_PROMPT_SQL(chat_messages[-1]["content"])
 
     if not user_request.use_external_llm:
-        sql_query = prompt_internal(chat_messages)
+        sql_query = prompt_internal([SYSTEM_MESSAGE_SQL] + chat_messages)
     else:
-        sql_query = prompt_external(chat_messages)
+        sql_query = prompt_external([SYSTEM_MESSAGE_SQL] + chat_messages)
 
     print(sql_query)
 
     if sql_query.startswith("SELECT"):
         sql_result = execute_query(sql_query)
-        if sql_result is None:
-            sql_result = "Error"
-        else:
+        if sql_result != "error":
             sql_result = sql_result[:5]
     else:
-        sql_result = ""
+        sql_result = "error"
 
     print(sql_result)
 
     chat_messages[-1]["content"] = GET_PROMPT_RESPONSE(user_query, sql_query, sql_result)
 
     if not user_request.use_external_llm:
-        final_response = prompt_internal(chat_messages)
+        final_response = prompt_internal([SYSTEM_MESSAGE_RESPONSE] + chat_messages)
     else:
-        final_response = prompt_external(chat_messages)
+        final_response = prompt_external([SYSTEM_MESSAGE_RESPONSE] + chat_messages)
 
     print(final_response)
 

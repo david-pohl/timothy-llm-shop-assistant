@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 const ChatPage = () => {
     const [messages, setMessages] = useState([
-        { is_ext_llm: false, sender: "Timothy", text: "Hello! My name is Timothy. I'm here to assist you in your online clothing shopping. Ask me anything." },
+        { is_ext_llm: false, sender: "Timothy", text: "Hello, my name is Timothy. I am here to assist you in navigating our clothing retail. Ask me anything." },
     ]);
     const [isCheckedExtLLM, setIsCheckedExtLLM] = useState(false);
 
@@ -29,7 +29,7 @@ const ChatPage = () => {
             text: text
         }
 
-        let context = messages.slice(-4).map((message, index) => ({
+        let context = messages.slice(-2).map((message, index) => ({
             sender: message.sender,
             text: message.text
         }));
@@ -63,7 +63,7 @@ const ChatPage = () => {
 
     return (
         <div className="w-screen bg-chatBg">
-            <div className="max-w-screen-2xl h-screen pt-4 pb-6 mx-auto flex flex-col">
+            <div className="max-w-screen-2xl h-screen py-4 mx-auto flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between mx-32 mt-4">
                     <h1 className="text-2xl font-bold text-msgText">Timothy</h1>
@@ -114,7 +114,7 @@ const ChatPage = () => {
                                     }`}
                             >
                                 <div
-                                    className={`max-w-xl flex-1 px-4 py-3 space-y-1 rounded-md shadow-md ${msg.sender === "You"
+                                    className={`max-w-xl flex-1 px-3 py-2 space-y-1 rounded-md shadow-md ${msg.sender === "You"
                                         ? "bg-userBg text-msgText"
                                         : "bg-timoBg text-msgText"
                                         }`}
@@ -128,7 +128,7 @@ const ChatPage = () => {
                             </div>
                         ))}
                         {isWaiting && (
-                            <div className="max-w-xl flex-1 flex justify-start mt-6">
+                            <div className="max-w-xl flex-1 flex justify-start">
                                 <div className="flex-1 flex space-x-4 h-32 items-center justify-center">
                                     <span className="w-3 h-3 bg-timoBg rounded-sm animate-staggeredPulseA"></span>
                                     <span className="w-3 h-3 bg-timoBg rounded-sm animate-staggeredPulseB"></span>

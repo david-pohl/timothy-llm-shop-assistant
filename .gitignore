@@ -1,4 +1,5 @@
 venv
-scraped*
+scraped_*
 intern-hw-simple-website-docker-image.tar
 backend/private_vars.py
+products_*

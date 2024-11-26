@@ -7,7 +7,6 @@ npm i -s cohere-ai
 docker load -i shop/intern-hw-simple-website-docker-image.tar
 docker run -p 4000:3000 -t -i sha256:57e8fae48a94b48ed3e1e2a020a6a5d21bfabb9f10b0ab2dc4b4c67ad5904896
 
-
 docker pull mysql
 docker run --name mysql -d \
     -p 3306:3306 \
