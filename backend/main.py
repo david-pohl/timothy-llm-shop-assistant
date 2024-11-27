@@ -4,6 +4,10 @@ from pydantic import BaseModel
 
 import mysql.connector
 
+# debug
+import time
+import random
+
 from requests import post, get
 import json
 from typing import List
@@ -11,6 +15,7 @@ from typing import List
 from tqdm import tqdm
 import cohere
 from private_vars import COHERE_API_KEY
+from scraper import scrape
 
 
 app = FastAPI()
@@ -83,6 +88,9 @@ SQL Result: {result};
 Answer: \
 """
 
+TIME_INIT_DATA = ["2024", "11", "27", "00", "30", "04"]
+app.last_data_update = TIME_INIT_DATA
+
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -91,7 +99,7 @@ def get_db_connection():
         database="mysql"
     )
 
-def init_db():
+def init_db(products):
     prod_cols = ["id", "name", "price", "description", "features"]
     prod_sql = f"""INSERT IGNORE INTO products ({", ".join(prod_cols)}) VALUES ({", ".join(["%s"] * len(prod_cols))})"""
     
@@ -101,26 +109,26 @@ def init_db():
     variants_cols = ["product_id", "size", "color", "stock", "internal_id"]
     variants_sql = f"""INSERT IGNORE INTO variants ({", ".join(variants_cols)}) VALUES ({", ".join(["%s"] * len(variants_cols))})"""
     
-    
-    with open("backend/data/products_2024_11_27_00_30_04.json", "r") as f:
-        products = json.load(f) 
-        prod_vals, cat_vals, variants_vals = [], [], []
-        for product_id, details in tqdm(products.items()):
-            prod_vals.append(tuple([details[col] if col != "id" else product_id for col in prod_cols]))
+    prod_vals, cat_vals, variants_vals = [], [], []
+    for product_id, details in tqdm(products.items()):
+        prod_vals.append(tuple([details[col] if col != "id" else product_id for col in prod_cols]))
 
-            cats = set()
-            for category in details["categories"]:
-                for level in category:
-                    if level not in cats:
-                        cat_vals.append((product_id, level))
-                        cats.add(level)
-            
-            for internal_id, size, color, stock in details["variants"]:
-                variants_vals.append((product_id, size, color, stock, internal_id))
+        cats = set()
+        for category in details["categories"]:
+            for level in category:
+                if level not in cats:
+                    cat_vals.append((product_id, level))
+                    cats.add(level)
+        
+        for internal_id, size, color, stock in details["variants"]:
+            variants_vals.append((product_id, size, color, stock, internal_id))
 
     connection = get_db_connection()
 
     with connection.cursor() as cursor:
+        cursor.execute("DROP TABLE IF EXISTS categories;")
+        cursor.execute("DROP TABLE IF EXISTS variants;")
+        cursor.execute("DROP TABLE IF EXISTS products;")
         cursor.execute(SQL_INIT_TABLE_PRODUCTS)
         cursor.execute(SQL_INIT_TABLE_CATEGORIES)
         cursor.execute(SQL_INIT_TABLE_VARIANTS)
@@ -136,7 +144,12 @@ def init_db():
 
     connection.close()
 
-init_db()
+
+
+with open(f"backend/data/products_{"_".join(app.last_data_update)}.json", "r") as f:
+    products = json.load(f)
+    init_db(products)
+
 
 class Message(BaseModel):
     sender: str
@@ -221,9 +234,9 @@ async def send_message(user_request: UserRequest):
     print(final_response)
 
     return {"response": final_response}
-        
 
-@app.get("/isready")
+
+@app.get("/is-ready")
 async def is_ready():
     try:
         # Checking database connection
@@ -237,7 +250,17 @@ async def is_ready():
         # Checking external llm connection
         co = cohere.ClientV2(COHERE_API_KEY)
 
-        return {"ready": True}
+        return {"version": app.last_data_update[:3]}
     except:
         raise HTTPException(status_code=500, detail="Backend Connection To Other Services Failed")
 
+
+@app.get("/update-data")
+async def update_data():
+    try:
+        products, filename_date = scrape(True)
+        init_db(products)
+        app.last_data_update = filename_date.split("_")[:3]
+        return {"version": app.last_data_update}
+    except:
+        raise HTTPException(status_code=500, detail="Updating Data Failed")

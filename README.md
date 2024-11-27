@@ -1,6 +1,11 @@
 # shop-assistant
 
-todo: external api, on-click scrape update, "please repeat" right after first prompt, containerization, size handling in clothing inventory, documentation
+TODO:
+- CHECK external api
+- CHECK size handling in clothing inventory 
+- on-click scrape update
+- containerization 
+- documentation
 
 npm i -s cohere-ai
 
