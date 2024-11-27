@@ -21,6 +21,45 @@ const ChatPage = () => {
     const [input, setInput] = useState("");
     const [isWaiting, setIsWaiting] = useState(false);
 
+    const isBackendReady = async () => {
+        const maxAttempts = 10;
+        const delay = 500;
+
+        const attempt = async () => {
+            const response = await fetch("http://127.0.0.1:8000/isready");
+            if (!response.ok) {
+                throw new Error("Not Ready Yet");
+            }
+            return response;
+        };
+
+        const rejectDelay = () => new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Delay")), delay)
+        );
+
+        for (let i = 0; i < maxAttempts; i++) {
+            try {
+                const result = await attempt();
+                return result;
+            } catch (error) {
+                if (i === maxAttempts - 1) {
+                    throw error;
+                }
+                await rejectDelay();
+            }
+        }
+    };
+
+    isBackendReady()
+        .then(result => {
+            // Handle successful handshake
+            console.log("Backend Ready");
+        })
+        .catch(error => {
+            // Handle error after all attempts fail
+            console.error("Backend Unavailable", error);
+        });
+
     const sendMessage = async () => {
         let text = input.trim()
         if (text === "") { return; }
@@ -120,7 +159,7 @@ const ChatPage = () => {
                                         }`}
                                 >
                                     <div className="flex flex-row space-x-2 items-center">
-                                        <div className="font-bold">{msg.sender}</div> 
+                                        <div className="font-bold">{msg.sender}</div>
                                         {msg.is_ext_llm ? (<div className="font-normal text-sm text-buttonText">ext</div>) : (<></>)}
                                     </div>
                                     <p className="whitespace-pre-line">{msg.text}</p>

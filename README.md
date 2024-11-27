@@ -38,6 +38,7 @@ npm run build
 npm run start
 
 to improve:
+vector database to catch typos and other problems
 optimize prompts, e.g., using dspy
 gpu-supported llm
 more agent-like behavior (show a picture, then retrieve link or propose alternatives)

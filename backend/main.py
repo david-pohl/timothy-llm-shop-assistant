@@ -1,10 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import mysql.connector
 
-from requests import post
+from requests import post, get
 import json
 from typing import List
 
@@ -147,18 +147,6 @@ class UserRequest(BaseModel):
     use_external_llm: bool
 
 
-@app.get("/check")
-async def check():
-    try:
-        connection = get_db_connection()
-        if connection.is_connected():
-            connection.close()
-            return {"status": "ok"}
-        else:
-            return {"status": "error"}
-    except:
-        return {"status": "error"}
-
 
 def execute_query(query):
     try:
@@ -234,3 +222,22 @@ async def send_message(user_request: UserRequest):
 
     return {"response": final_response}
         
+
+@app.get("/isready")
+async def is_ready():
+    try:
+        # Checking database connection
+        with get_db_connection() as conn:
+            if not conn.is_connected():
+                raise Exception()
+        
+        # Checking internal llm connection
+        response = get("http://localhost:11434/api/ps")
+
+        # Checking external llm connection
+        co = cohere.ClientV2(COHERE_API_KEY)
+
+        return {"ready": True}
+    except:
+        raise HTTPException(status_code=500, detail="Backend Connection To Other Services Failed")
+
