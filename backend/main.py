@@ -276,6 +276,7 @@ async def is_ready():
 async def update_data():
     try:
         products, filename_date = scrape(True)
+        print("products", products)
         init_db(products)
         app.last_data_update = filename_date.split("_")[:3]
         return {"version": app.last_data_update}

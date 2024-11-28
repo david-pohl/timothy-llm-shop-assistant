@@ -21,14 +21,13 @@ services:
     depends_on:
       - database
       - ollama
-      - scraping-website
       - selenium
     environment:
       - DATABASE_HOST=mysql-db
       - DATABASE_USER=root
       - DATABASE_PASSWORD=db
       - DATABASE_NAME=mysql
-      - SCRAPING_URL=http://scraping-website:4000
+      - SCRAPING_URL=http://scraping-website:3000
       - OLLAMA_CHAT_URL=http://ollama:11434/api/chat
       - OLLAMA_LIST_URL=http://ollama:11434/api/tags
       - COHERE_API_KEY=CzOSiCSE0svjrVEcUVNX25KRmIXlcSoCWeej2HVG
@@ -65,20 +64,6 @@ services:
     tty: true
     entrypoint: [ "/usr/bin/bash", "/app/entrypoint.sh" ]
 
-  scraping-website:
-    image: sha256:57e8fae48a94b48ed3e1e2a020a6a5d21bfabb9f10b0ab2dc4b4c67ad5904896
-    container_name: scraping-website
-    ports:
-      - "4000:3000"
-    networks:
-      - app-network
-    tty: true
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   selenium:
     image: seleniarm/standalone-chromium:latest
     container_name: selenium
@@ -87,11 +72,18 @@ services:
       - "4444:4444"
       - "5900:5900"
       - "7900:7900"
-    depends_on:
-      - scraping-website
     networks:
       - app-network
     shm_size: 4gb
+
+  scraping-website:
+    image: sha256:57e8fae48a94b48ed3e1e2a020a6a5d21bfabb9f10b0ab2dc4b4c67ad5904896
+    ports:
+      - "4000:3000"
+    networks:
+      - app-network
+
+  
 
 volumes:
   db_data:

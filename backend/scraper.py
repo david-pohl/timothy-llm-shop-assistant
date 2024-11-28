@@ -12,6 +12,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 def scrape(is_backend_running):
@@ -22,18 +24,17 @@ def scrape(is_backend_running):
     print(scraping_url)
     print(selenium_chrome_url)
 
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
     driver = webdriver.Remote(
-        command_executor="http://selenium:4444/wd/hub",
-        options=webdriver.ChromeOptions()
+        command_executor=selenium_chrome_url,
+        options=options
     )
 
-    
-    print("driver created")
-
     driver.get(scraping_url)
-    print(driver.title)
-
-    print("website received")
 
     unused_attrs = set()
 
@@ -111,7 +112,7 @@ def scrape(is_backend_running):
     scraped_items = []
 
     total_pages = int(last_page_btn.text)
-    for i in tqdm(range(1, total_pages), desc="Scraping Shop"):
+    for i in tqdm(range(1, total_pages), desc=f"Scraping{driver.title}"):
         for item_div in item_divs:
             scraped = scrape_item(item_div)
             scraped_items.append(scraped)
