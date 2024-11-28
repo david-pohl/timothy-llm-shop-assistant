@@ -61,7 +61,6 @@ Never include technical aspects. Do not mention SQL.\
 GET_PROMPT_SQL = lambda question: f"""\
 Given a user question, create a syntactically correct SQL query. Only if the question builds on prior messages, use corresponding messages as context.
 Unless the question specifies a specific number of items to obtain, query for at most 5 results using the LIMIT clause as per MySQL. 
-You can order the results to return the most informative data in the database.
 If the question specifies or indicates a set of attributes to retrieve, query only the columns that are needed to answer the question.
 Use only the column names you can see in the corresponding tables below. Be careful to not query for columns that do not exist.
 
@@ -178,6 +177,14 @@ class UserRequest(BaseModel):
     use_external_llm: bool
 
 
+class APIMessage(BaseModel):
+    role: str
+    content: str
+
+class APIRequest(BaseModel):
+    messages: List[APIMessage]
+
+
 # Sending query to database
 def execute_query(query):
     try:
@@ -217,25 +224,16 @@ def prompt_external(messages):
     return response.message.content[0].text
 
 
-# Processing user message: question -> sql query -> sql result -> response
-@app.post("/send/message")
-async def send_message(user_request: UserRequest):
-    user_query = user_request.messages[-1].text
+def process(messages, use_external_llm):
+    user_query = messages[-1]["content"]
     print(user_query)
 
-    chat_messages = [
-        {
-            "role": "assistant" if m.sender == "Timothy" else "user",
-            "content": m.text
-        } 
-        for m in user_request.messages
-    ]
-    chat_messages[-1]["content"] = GET_PROMPT_SQL(chat_messages[-1]["content"])
+    messages[-1]["content"] = GET_PROMPT_SQL(messages[-1]["content"])
 
-    if not user_request.use_external_llm:
-        sql_query = prompt_internal([SYSTEM_MESSAGE_SQL] + chat_messages)
+    if not use_external_llm:
+        sql_query = prompt_internal([SYSTEM_MESSAGE_SQL] + messages)
     else:
-        sql_query = prompt_external([SYSTEM_MESSAGE_SQL] + chat_messages)
+        sql_query = prompt_external([SYSTEM_MESSAGE_SQL] + messages)
 
     print(sql_query)
 
@@ -248,16 +246,43 @@ async def send_message(user_request: UserRequest):
 
     print(sql_result)
 
-    chat_messages[-1]["content"] = GET_PROMPT_RESPONSE(user_query, sql_query, sql_result)
+    messages[-1]["content"] = GET_PROMPT_RESPONSE(user_query, sql_query, sql_result)
 
-    if not user_request.use_external_llm:
-        final_response = prompt_internal([SYSTEM_MESSAGE_RESPONSE] + chat_messages)
+    if not use_external_llm:
+        final_response = prompt_internal([SYSTEM_MESSAGE_RESPONSE] + messages)
     else:
-        final_response = prompt_external([SYSTEM_MESSAGE_RESPONSE] + chat_messages)
+        final_response = prompt_external([SYSTEM_MESSAGE_RESPONSE] + messages)
 
     print(final_response)
 
     return {"response": final_response}
+
+
+# Processing user message: question -> sql query -> sql result -> response
+@app.post("/send/message")
+async def send_message(user_request: UserRequest):
+    messages = [
+        {
+            "role": "assistant" if m.sender == "Timothy" else "user",
+            "content": m.text
+        } 
+        for m in user_request.messages
+    ]
+    return process(messages, user_request.use_external_llm)
+
+
+@app.post("/chat/completions")
+async def chat_completions(api_request: APIRequest):
+    messages = [
+        {
+            "role": m.role,
+            "content": m.content
+        } 
+        for m in api_request.messages
+    ]
+
+    return process(messages, True)
+
 
 # Providing client with connection status of backend: checking database and llm connections
 @app.get("/is-ready")
@@ -271,7 +296,7 @@ async def is_ready():
         print("DB Connection Successful")
 
         # Checking internal llm connection
-        ollama_list_url = os.getenv("OLLAMA_LIST_URL")
+        """ollama_list_url = os.getenv("OLLAMA_LIST_URL")
         response = get(ollama_list_url)
 
         print(response)
@@ -285,7 +310,7 @@ async def is_ready():
         if not model_found:
             raise Exception()
 
-        print("OLLAMA Connection Successful")
+        print("OLLAMA Connection Successful")"""
 
         # Checking external llm connection
         co = cohere.ClientV2(COHERE_API_KEY)
