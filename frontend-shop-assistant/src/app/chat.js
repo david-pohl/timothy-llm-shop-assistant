@@ -124,7 +124,7 @@ const ChatPage = () => {
                 <div className="flex items-center justify-between mx-32 mt-4">
                     <h1 className="text-2xl font-bold text-msgText">Timothy</h1>
                     <div className="flex flex-row space-x-2">
-                        <span onClick={() => setIsCheckedExtLLM(false)} className={'flex cursor-pointer items-center text-sm font-medium transition-all ' + (isCheckedExtLLM ? "text-grayText" : "text-msgText")}>
+                        <span onClick={() => setIsCheckedExtLLM(false)} className={'flex cursor-pointer items-center text-sm text-right font-medium transition-all ' + (isCheckedExtLLM ? "text-grayText" : "text-msgText")}>
                             Internal LLM
                         </span>
                         <label className='relative inline-flex cursor-pointer select-none items-center opacity-75 hover:opacity-100 transition-all'>

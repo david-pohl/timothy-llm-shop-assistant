@@ -112,7 +112,7 @@ def init_db(products):
     variants_sql = f"""INSERT IGNORE INTO variants ({", ".join(variants_cols)}) VALUES ({", ".join(["%s"] * len(variants_cols))})"""
     
     prod_vals, cat_vals, variants_vals = [], [], []
-    for product_id, details in tqdm(products.items()):
+    for product_id, details in tqdm(products.items(), desc="Populating Database"):
         prod_vals.append(tuple([details[col] if col != "id" else product_id for col in prod_cols]))
 
         cats = set()
@@ -252,7 +252,7 @@ async def is_ready():
         llama_model_name = "llama3.2:3b"
 
         # Checking internal llm connection
-        """ollama_list_url = os.getenv("OLLAMA_LIST_URL")
+        ollama_list_url = os.getenv("OLLAMA_LIST_URL")
         models = get(ollama_list_url)
 
         model_found = False
@@ -262,7 +262,7 @@ async def is_ready():
                 model_found = True
         
         if not model_found:
-            raise Exception()"""
+            raise Exception()
 
         # Checking external llm connection
         co = cohere.ClientV2(COHERE_API_KEY)
