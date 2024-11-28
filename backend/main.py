@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -28,11 +30,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-with open("backend/data/init_table_products.sql", "r") as f:
+with open("data/init_table_products.sql", "r") as f:
     SQL_INIT_TABLE_PRODUCTS = f.read()
-with open("backend/data/init_table_categories.sql", "r") as f:
+with open("data/init_table_categories.sql", "r") as f:
     SQL_INIT_TABLE_CATEGORIES = f.read()
-with open("backend/data/init_table_variants.sql", "r") as f:
+with open("data/init_table_variants.sql", "r") as f:
     SQL_INIT_TABLE_VARIANTS = f.read()
 
 SYSTEM_MESSAGE_SQL = {"role": "system", "content": """\
@@ -93,10 +95,10 @@ app.last_data_update = TIME_INIT_DATA
 
 def get_db_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="db",
-        database="mysql"
+        host=os.getenv("DATABASE_HOST"),
+        user=os.getenv("DATABASE_USER"),
+        password=os.getenv("DATABASE_PASSWORD"),
+        database=os.getenv("DATABASE_NAME")
     )
 
 def init_db(products):
@@ -145,8 +147,8 @@ def init_db(products):
     connection.close()
 
 
-
-with open(f"backend/data/products_{"_".join(app.last_data_update)}.json", "r") as f:
+filename_date_suffix = "_".join(app.last_data_update)
+with open(f"data/products_{filename_date_suffix}.json", "r") as f:
     products = json.load(f)
     init_db(products)
 
@@ -174,19 +176,22 @@ def execute_query(query):
         return "error"
 
 def prompt_internal(messages):
+    ollama_url = os.getenv("OLLAMA_CHAT_URL")
     response_text = ""
     for chunk in post(
-        url="http://localhost:11434/api/chat", 
+        url=ollama_url, 
         json={
             "model": "llama3.2:3b",
             "messages": messages
         }).text.splitlines():
+        print(json.loads(chunk))
         response_text += json.loads(chunk)["message"]["content"]
 
     return response_text
 
 def prompt_external(messages):
-    co = cohere.ClientV2(COHERE_API_KEY)
+    cohere_api_key = os.getenv("COHERE_API_KEY")
+    co = cohere.ClientV2(cohere_api_key)
     response = co.chat(
         model="command-r",
         messages=messages
@@ -244,15 +249,27 @@ async def is_ready():
             if not conn.is_connected():
                 raise Exception()
         
+        llama_model_name = "llama3.2:3b"
+
         # Checking internal llm connection
-        response = get("http://localhost:11434/api/ps")
+        """ollama_list_url = os.getenv("OLLAMA_LIST_URL")
+        models = get(ollama_list_url)
+
+        model_found = False
+        for model in models:
+            print(model)
+            if model["name"] == llama_model_name:
+                model_found = True
+        
+        if not model_found:
+            raise Exception()"""
 
         # Checking external llm connection
         co = cohere.ClientV2(COHERE_API_KEY)
 
         return {"version": app.last_data_update[:3]}
     except:
-        raise HTTPException(status_code=500, detail="Backend Connection To Other Services Failed")
+        raise HTTPException(status_code=500, detail=f"Backend Connection To Other Services Failed")
 
 
 @app.get("/update-data")
@@ -263,4 +280,4 @@ async def update_data():
         app.last_data_update = filename_date.split("_")[:3]
         return {"version": app.last_data_update}
     except:
-        raise HTTPException(status_code=500, detail="Updating Data Failed")
+        return HTTPException(status_code=500, detail="Updating Data Failed")

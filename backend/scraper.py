@@ -1,4 +1,5 @@
 import sys
+import os
 
 import time
 import re
@@ -12,13 +13,27 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
 
 def scrape(is_backend_running):
-    driver = webdriver.Chrome()
-    driver.get("http://localhost:4000")
+    scraping_url = os.getenv("SCRAPING_URL")
+    selenium_chrome_url = os.getenv("SELENIUM_CHROME_URL")
+
+
+    print(scraping_url)
+    print(selenium_chrome_url)
+
+    driver = webdriver.Remote(
+        command_executor="http://selenium:4444/wd/hub",
+        options=webdriver.ChromeOptions()
+    )
+
+    
+    print("driver created")
+
+    driver.get(scraping_url)
+    print(driver.title)
+
+    print("website received")
 
     unused_attrs = set()
 

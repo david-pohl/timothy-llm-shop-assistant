@@ -3,7 +3,7 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend-shop-assistant
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
@@ -21,8 +21,19 @@ services:
     depends_on:
       - database
       - ollama
+      - scraping-website
+      - selenium
     environment:
-      - DATABASE_URL=mysql://user:password@database/db_name
+      - DATABASE_HOST=mysql-db
+      - DATABASE_USER=root
+      - DATABASE_PASSWORD=db
+      - DATABASE_NAME=mysql
+      - SCRAPING_URL=http://scraping-website:4000
+      - OLLAMA_CHAT_URL=http://ollama:11434/api/chat
+      - OLLAMA_LIST_URL=http://ollama:11434/api/tags
+      - COHERE_API_KEY=CzOSiCSE0svjrVEcUVNX25KRmIXlcSoCWeej2HVG
+      - SELENIUM_CHROME_URL=http://chrome:4444/wd/hub
+    tty: true
     networks:
       - app-network
 
@@ -31,10 +42,8 @@ services:
     container_name: mysql-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: db_name
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: db
+      MYSQL_DATABASE: mysql
     ports:
       - "3306:3306"
     volumes:
@@ -43,16 +52,51 @@ services:
       - app-network
 
   ollama:
-    image: ollama/ollama:latest
+    build:
+      context: ./llm
+      dockerfile: Dockerfile
     container_name: ollama
     restart: always
     ports:
       - "11434:11434"
+    pull_policy: always
     networks:
       - app-network
+    tty: true
+    entrypoint: [ "/usr/bin/bash", "/app/entrypoint.sh" ]
+
+  scraping-website:
+    image: sha256:57e8fae48a94b48ed3e1e2a020a6a5d21bfabb9f10b0ab2dc4b4c67ad5904896
+    container_name: scraping-website
+    ports:
+      - "4000:3000"
+    networks:
+      - app-network
+    tty: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  selenium:
+    image: seleniarm/standalone-chromium:latest
+    container_name: selenium
+    hostname: chrome
+    ports:
+      - "4444:4444"
+      - "5900:5900"
+      - "7900:7900"
+    depends_on:
+      - scraping-website
+    networks:
+      - app-network
+    shm_size: 4gb
 
 volumes:
   db_data:
 
+
 networks:
   app-network:
+    driver: bridge
