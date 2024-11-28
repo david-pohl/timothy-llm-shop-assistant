@@ -50,9 +50,9 @@ Do not include any explanations, comments, or additional details in your respons
 # System prompt passed to the llm for general guidance when generating the final response based on the SQL queries and results
 SYSTEM_MESSAGE_RESPONSE = {"role": "system", "content": """\
 You are Timothy, an AI assistant of an online clothing retail inventory system. 
-Respond to the user based on their request, a corresponding SQL query, and SQL result. 
-Answer concisely based on the given information and previous conversation. 
-Always respond truthfully. Never include the technical aspects of the result. Do not mention SQL.\
+Respond to the user based on their request, the corresponding SQL query and result. 
+Answer concisely based only on the given information and previous conversation. 
+Never include technical aspects. Do not mention SQL.\
 """}
 
 # Prompt passed to the llm wrapping the user question for accurate SQL query generation
@@ -89,9 +89,8 @@ Question:
 # Prompt passed to the llm wrapping user question, SQL query (may be none), and SQL result (may be none)
 # Inspired by langchain's internal prompt
 GET_PROMPT_RESPONSE = lambda question, query, result: f"""\
-Given the following user question, corresponding SQL query, and SQL result, answer the user question. 
-If there is no SQL result, politely suggest that you can assist with finding items in the inventory if applicable. 
-If the request cannot be answered properly, ask for clarification politely. 
+Given the following user question, corresponding SQL query, and SQL result, respond concisely to the user. 
+If there is no SQL query or result, politely ask for further clarification. 
 
 Question: {question};
 SQL Query: {query};
@@ -125,6 +124,10 @@ def init_db(products):
     
     prod_vals, cat_vals, variants_vals = [], [], []
     for product_id, details in tqdm(products.items(), desc="Populating Database"):
+        # Skipping products without a price
+        if details["price"] is None:
+            continue
+
         prod_vals.append(tuple([details[col] if col != "id" else product_id for col in prod_cols]))
 
         cats = set()
@@ -270,12 +273,11 @@ async def is_ready():
         # Checking internal llm connection
         ollama_list_url = os.getenv("OLLAMA_LIST_URL")
         response = get(ollama_list_url)
-        data = await response.json()
 
-        print(data)
+        print(response)
 
         model_found = False
-        for model in data["models"]:
+        for model in response["models"]:
             print(model)
             if model["name"] == LLAMA_MODEL:
                 model_found = True
