@@ -1,5 +1,12 @@
 # Timothy - Your Shopping Assistant
 
+Author: David Pohl, 2024, Institute of Science Tokyo
+
+Notes: 
+- `/chat/completions` is usable as required
+- Scraping is slow, so limited to the first 50 pages
+- Scalability can be achieved easily since architecture is split into parallelizable chunks of work
+
 ## Setup
 1. In the folder 'shop-assistant', run `docker load -i shop/intern-hw-simple-website-docker-image.tar`.
 2. In shop.env file, add the Image ID as `SHOP_IMG=*` provided by Docker after loading.
@@ -67,8 +74,7 @@ The LLM request further information if the question is unreadable or makes no se
 
 ---
 
-
-## Potential Improvements:
+## Potential Improvements
 - Vector database for RAG on single columns like name
 - Optimize prompts, e.g., using DSPy
 - GPU-supported local LLM
@@ -76,3 +82,33 @@ The LLM request further information if the question is unreadable or makes no se
 - Larger context
 - Caching previous answers for quicker responses
 - Decicated Text2SQL model fine-tuning
+
+## Database Reference
+
+```sql
+CREATE TABLE IF NOT EXISTS categories (
+    product_id VARCHAR(64), -- Product ID
+    category VARCHAR(255), -- Assigned Category
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    PRIMARY KEY (product_id, category)
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    id VARCHAR(64) PRIMARY KEY, -- Unique Product ID
+    name VARCHAR(255), -- Name
+    price DECIMAL(10, 2), -- Price (in $)
+    description TEXT, -- Description
+    features TEXT -- Enumeration of special product attributes
+);
+
+CREATE TABLE IF NOT EXISTS variants (
+    product_id VARCHAR(64), -- Product ID
+    size VARCHAR(32), -- Product Size (XS, S, M, ..., 32, 34, 36, ...)
+    color VARCHAR(32), -- Product Color (Blue, Green, Red, ...)
+    stock INT, -- Number of Available Units
+    internal_id INT, -- Internal Variant ID (rarely for external use)
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    PRIMARY KEY (product_id, size, color)
+);
+
+```
