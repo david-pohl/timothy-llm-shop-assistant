@@ -15,6 +15,7 @@ const ChatPage = () => {
         setMessages((prev) => [...prev, { is_ext_llm: is_ext_llm, sender: sender, text: text }]);
     }
 
+    // Keep reference to end of message list for automatic scrolling
     const endOfMessagesRef = useRef(null);
     useEffect(() => {
         if (endOfMessagesRef.current) {
@@ -27,6 +28,7 @@ const ChatPage = () => {
     const [isWaiting, setIsWaiting] = useState(false);
     const [isDataUpdating, setIsDataUpdating] = useState(false);
 
+    // Retrying to receive positive response up to 10 times, delayed by 1s between each request
     const getBackendStatus = async () => {
         const maxRequests = 10;
         const delayNext = 1000;
@@ -50,6 +52,7 @@ const ChatPage = () => {
         throw new Error();
     };
 
+    // Checking if backend is ready to process requests
     useEffect(() => {
         getBackendStatus()
             .then(data => {
@@ -61,6 +64,7 @@ const ChatPage = () => {
             });
     }, []);
 
+    // Requesting to update data
     const updateData = async () => {
         try {
             setIsDataUpdating(true);
@@ -77,6 +81,7 @@ const ChatPage = () => {
         }
     };
 
+    // Sending messages to backend
     const sendMessage = async () => {
         let text = input.trim()
         if (text === "") { return; }
@@ -85,6 +90,7 @@ const ChatPage = () => {
             text: text
         }
 
+        // Keep context of previous 2 messages (low number for efficiency reasons)
         let context = messages.slice(-2).map((message, index) => ({
             sender: message.sender,
             text: message.text
@@ -96,6 +102,7 @@ const ChatPage = () => {
         setInput("");
         setIsWaiting(true);
 
+        // Sending POST to backend; 'use_external_llm' decides whether the internal or external llm is used 
         try {
             const res = await fetch("http://127.0.0.1:8000/send/message", {
                 method: "POST",

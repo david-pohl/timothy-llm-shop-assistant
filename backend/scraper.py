@@ -20,9 +20,7 @@ def scrape(is_backend_running):
     scraping_url = os.getenv("SCRAPING_URL")
     selenium_chrome_url = os.getenv("SELENIUM_CHROME_URL")
 
-
-    print(scraping_url)
-    print(selenium_chrome_url)
+    print("Starting Scrape", scraping_url, selenium_chrome_url)
 
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
@@ -34,18 +32,19 @@ def scrape(is_backend_running):
         options=options
     )
 
+    print("Fetching Site")
+
     driver.get(scraping_url)
 
     unused_attrs = set()
 
     def scrape_item(item_div):
-        # include try-excepts to skip timeouts that may occur for some items
-
         desc_div = WebDriverWait(item_div, 3).until(
             EC.presence_of_element_located(
                 (By.CSS_SELECTOR, "div.MuiCardContent-root > div:first-of-type")
             )
         )
+        
         detail_btn = WebDriverWait(item_div, 3).until(
             EC.presence_of_element_located(
                 (By.CSS_SELECTOR, "div.MuiCardContent-root > div:last-of-type")
@@ -56,6 +55,7 @@ def scrape(is_backend_running):
         text = text.strip()
         bullets = "; ".join([re.sub(r"[\n]*•\s", "", b).strip(".") for b in bullets])
 
+        # Going to next page
         detail_btn.click()
 
         detail_div = WebDriverWait(driver, 3).until(
@@ -64,6 +64,7 @@ def scrape(is_backend_running):
 
         detail_rows = detail_div.find_elements(By.CSS_SELECTOR, "div.MuiBox-root > div.MuiGrid-root > div.MuiGrid-container > div.MuiGrid-item:last-of-type > div:first-child > div.MuiPaper-root > table > tbody > tr")
 
+        # Collecting elements in target structure
         scraped = {}
         for detail_row in detail_rows:
             attr_name = detail_row.find_element(By.CSS_SELECTOR, "th").text.lower().strip()
@@ -92,7 +93,7 @@ def scrape(is_backend_running):
                 continue
 
             scraped[attr_name] = attr_val
-        
+
         image_src = detail_div.find_element(By.CSS_SELECTOR, "img").get_attribute("src")
         scraped["img"] = image_src
 
@@ -103,16 +104,22 @@ def scrape(is_backend_running):
 
         return scraped
 
+    # Fetching the pagination navigation buttons
     last_page_btn = driver.find_element(By.CSS_SELECTOR, "ul.MuiPagination-ul > li:nth-last-child(2) > button")
     next_page_btn = driver.find_element(By.CSS_SELECTOR, "ul.MuiPagination-ul > li:last-child > button")
 
+    # Fetching the skeleton of products
     item_css = f"main > div > div:not(:last-child) > div.MuiPaper-root > div.MuiGrid-container > div.MuiGrid-item:nth-child(2)"
     item_divs = driver.find_elements(By.CSS_SELECTOR, item_css)
 
     scraped_items = []
 
-    total_pages = int(last_page_btn.text)
-    for i in tqdm(range(1, total_pages), desc=f"Scraping{driver.title}"):
+    # For demonstration purposes, limiting to first 50 pages
+    total_pages = min(50, int(last_page_btn.text))
+    for i in tqdm(range(1, total_pages), desc="Scraping"):
+        # IMPORTANT: SCRAPER BUG: TURNS INACTIVE IF NO ACTION AT EACH ITERATION
+        print(i) 
+        ###
         for item_div in item_divs:
             scraped = scrape_item(item_div)
             scraped_items.append(scraped)
@@ -121,6 +128,7 @@ def scrape(is_backend_running):
 
     filename_date = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
 
+    # If not running at production, saving to file
     if not is_backend_running:
         with open(f"data/scraped_{filename_date}.json", "w") as f:
             json.dump(scraped_items, f, indent=4)
@@ -138,6 +146,9 @@ def scrape(is_backend_running):
             "variants": set(),
         }
 
+
+    # Bringing collected items in final product structure
+    # Multiple elements belong to the same product type (differing only in color and size)
     parent2info = {}
 
     for item in scraped_items:
@@ -162,6 +173,8 @@ def scrape(is_backend_running):
         parent2info[parent_id]["colors"] = sorted(list(parent2info[parent_id]["colors"]))
         parent2info[parent_id]["variants"] = sorted(list(parent2info[parent_id]["variants"]))
 
+
+    # If not running at production, saving products to file
     if not is_backend_running:
         with open(f"data/products_{filename_date}.json", "w") as f:
             json.dump(parent2info, f, indent=4)

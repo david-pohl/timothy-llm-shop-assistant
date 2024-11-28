@@ -1,5 +1,12 @@
 # shop-assistant
 
+
+
+
+docker-compose --env-file shop.env up --build
+
+On reload client keeps the newly fetched data
+
 TODO:
 - CHECK external api
 - CHECK size handling in clothing inventory 
