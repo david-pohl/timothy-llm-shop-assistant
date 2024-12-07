@@ -8,7 +8,7 @@ Notes:
 - Scalability can be achieved easily since architecture is split into parallelizable chunks of work
 
 ## Setup
-1. In the folder 'shop-assistant', run `docker load -i shop/intern-hw-simple-website-docker-image.tar`.
+1. In the folder 'shop-assistant', run `docker load -i shop/simple-website-docker-image.tar`.
 2. In shop.env file, add the Image ID as `SHOP_IMG=*` provided by Docker after loading.
 3. (In shop.env file, add your Cohere API key as ``COHERE_API_KEY=*`` - for using an external LLM) *recommended*
 4. Run `docker-compose --env-file shop.env up --build`. Waiting for a few minutes may be required.
