@@ -3,3 +3,5 @@ scraped_*
 intern-hw-simple-website-docker-image.tar
 backend/private_vars.py
 products_*
+.DS_Store
+.shop.env
