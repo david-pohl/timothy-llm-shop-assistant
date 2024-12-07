@@ -1,6 +1,6 @@
-# Timothy - Your Shopping Assistant
+# Timothy - Your Personal LLM-Driven Shop Assistant
 
-Author: David Pohl, 2024, Institute of Science Tokyo
+By David Pohl (2024, Institute of Science Tokyo)
 
 Notes: 
 - `/chat/completions` is usable as required
