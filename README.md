@@ -1,20 +1,26 @@
-# Timothy - Your Personal LLM-Driven Shop Assistant
+# Timothy - Your Shopping Assistant
 
-By David Pohl (2024, Institute of Science Tokyo)
+Author: David Pohl, 2024, Institute of Science Tokyo
+
+<p align="center">
+    <img src="timothy_chatbot_cover.png" alt="Timothy" width="1000" />
+      <br>
+    Example Conversation with Timothy
+</p>
 
 Notes: 
-- `/chat/completions` is usable as required
+- `/chat/completions` implemented for programmatic access
 - Scraping is slow, so limited to the first 50 pages
-- Scalability can be achieved easily since architecture is split into parallelizable chunks of work
+- Scalability can be achieved easily since architecture is split into parallelizable chunks
 
 ## Setup
-1. In the folder 'shop-assistant', run `docker load -i shop/simple-website-docker-image.tar`.
+1. In the folder 'shop-assistant', run `docker load -i scraping-website/<your-image>`.
 2. In shop.env file, add the Image ID as `SHOP_IMG=*` provided by Docker after loading.
-3. (In shop.env file, add your Cohere API key as ``COHERE_API_KEY=*`` - for using an external LLM) *recommended*
+3. In shop.env file, add your Cohere API key as ``COHERE_API_KEY=*`` (*Recommended*)
 4. Run `docker-compose --env-file shop.env up --build`. Waiting for a few minutes may be required.
 5. At http://localhost:3000 in your browser, the chat frontend is now available.
 6. Switch between using the local Ollama LLM (internal LLM) and the Cohere LLM (external LLM) as preferred.
-7. For demonstration purposes of this assignment, pre-scraped data is used as the base for starting immediately. Even though, in reality, the user would not be able to initiate such actions, here, the click on update will start to scrape the website again and update the database. On client reload, the data remains updated. Only after restarting the docker application, the data is back to the default version. 
+7. For demonstration purposes, pre-scraped data is used as the base for starting immediately. Even though, in reality, the user would not be able to initiate such actions, here, the click on update will start to scrape the website again and update the database. On client reload, the data remains updated. Only after restarting the docker application, the data is back to the default version. 
 
 ## Components
 Overall, this app consists of multiple instances:
@@ -31,24 +37,24 @@ I tested the API using multiple different types of questions.
 
 ---
 What is your name?
--> Three jackets cost under $50.
+-> Hello, I am Timothy.
 
 The LLM is able to understand that this is not a question concerning products.
 
 ---
 How many jackets cost under 50$?
--> Hello, I am Timothy.
+-> We have five jackets priced under $50.
 
 The LLM is able to join multiple tables.
 
 ---
 What is your cheapest jacket?
--> The cheapest jacket is the Beaumont Summit Kit in orange, which costs $42.
+-> Our cheapest jacket is the Jade Yoga Jacket at $32.
 
 The LLM is able to understand that only one table is needed here. It can sort appropriately. 
 
 ---
-How much is the Juno Jacket?
+How much is the "Juno Jacket"?
 -> The Juno Jacket costs $77.
 
 The LLM is able to look up a specific name and fetch its details.
